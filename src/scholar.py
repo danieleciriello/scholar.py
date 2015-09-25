@@ -9,6 +9,7 @@ import optparse
 import os
 import sys
 import re
+import json
 
 try:
     # Try importing for Python 3
@@ -45,21 +46,6 @@ else:
             return str(s)
 
 
-class Error(Exception):
-
-    """Base class for any Scholar error."""
-
-
-class FormatError(Error):
-
-    """A query argument or setting was formatted incorrectly."""
-
-
-class QueryArgumentError(Error):
-
-    """A query did not have a suitable set of arguments."""
-
-
 class ScholarConf(object):
 
     """Helper class for global settings."""
@@ -67,6 +53,7 @@ class ScholarConf(object):
     VERSION = '2.9'
     LOG_LEVEL = 1
     MAX_PAGE_RESULTS = 20  # Current maximum for per-page results
+    STARTING_RESULT = 0  # Result offset (to change page)
     SCHOLAR_SITE = 'http://scholar.google.com'
 
     # USER_AGENT = 'Mozilla/5.0 (X11; U; FreeBSD i386; en-US; rv:1.9.2.9) Gecko/20100913 Firefox/3.6.9'
@@ -361,34 +348,6 @@ class ScholarArticleParser(object):
         return parts[0] + '?' + '&'.join(res)
 
 
-class ScholarArticleParser120201(ScholarArticleParser):
-
-    """
-    This class reflects update to the Scholar results page layout that
-    Google recently.
-    """
-
-    def _parse_article(self, div):
-        self.article = ScholarArticle()
-
-        for tag in div:
-            if not hasattr(tag, 'name'):
-                continue
-
-            if tag.name == 'h3' and self._tag_has_class(tag, 'gs_rt') and tag.a:
-                self.article['title'] = ''.join(tag.a.findAll(text=True))
-                self.article['url'] = self._path2url(tag.a['href'])
-                if self.article['url'].endswith('.pdf'):
-                    self.article['url_pdf'] = self.article['url']
-
-            if tag.name == 'div' and self._tag_has_class(tag, 'gs_a'):
-                year = self.year_re.findall(tag.text)
-                self.article['year'] = year[0] if len(year) > 0 else None
-
-            if tag.name == 'div' and self._tag_has_class(tag, 'gs_fl'):
-                self._parse_links(tag)
-
-
 class ScholarArticleParser120726(ScholarArticleParser):
 
     """
@@ -474,11 +433,20 @@ class ScholarQuery(object):
         # in attrs, see below).
         self.num_results = ScholarConf.MAX_PAGE_RESULTS
 
+        #
+        #
+        #
+        self.starting_number = ScholarConf.STARTING_RESULT
+
         # Queries may have global result attributes, similar to
         # per-article attributes in ScholarArticle. The exact set of
         # attributes may differ by query type, but they all share the
         # basic data structure:
         self.attrs = {}
+
+    def set_starting_number(self, starting_number):
+        msg = 'starting number of results on page must be numeric'
+        self.starting_number = ScholarUtils.ensure_int(starting_number, msg)
 
     def set_num_page_results(self, num_page_results):
         msg = 'maximum number of results on page must be numeric'
@@ -547,7 +515,8 @@ class ClusterScholarQuery(ScholarQuery):
     know about.
     """
     SCHOLAR_CLUSTER_URL = ScholarConf.SCHOLAR_SITE + '/scholar?' \
-        + 'cluster=%(cluster)s' \
+        + 'start=%(num)s' \
+        + '&cluster=%(cluster)s' \
         + '&num=%(num)s'
 
     def __init__(self, cluster=None):
@@ -583,7 +552,8 @@ class SearchScholarQuery(ScholarQuery):
     configure on the Scholar website, in the advanced search options.
     """
     SCHOLAR_QUERY_URL = ScholarConf.SCHOLAR_SITE + '/scholar?' \
-        + 'as_q=%(words)s' \
+        + 'start=%(start)s' \
+        + '&as_q=%(words)s' \
         + '&as_epq=%(phrase)s' \
         + '&as_oq=%(words_some)s' \
         + '&as_eq=%(words_none)s' \
@@ -599,6 +569,7 @@ class SearchScholarQuery(ScholarQuery):
 
     def __init__(self):
         ScholarQuery.__init__(self)
+        self._add_attribute_type('starting_number', 'Start', 0)
         self._add_attribute_type('num_results', 'Results', 0)
         self.words = None  # The default search behavior
         self.words_some = None  # At least one of those words
@@ -679,7 +650,8 @@ class SearchScholarQuery(ScholarQuery):
         if self.words_none:
             words_none = self._parenthesize_phrases(self.words_none)
 
-        urlargs = {'words': self.words or '',
+        urlargs = {'start': self.starting_number or ScholarConf.STARTING_RESULT,
+                   'words': self.words or '',
                    'words_some': words_some or '',
                    'words_none': words_none or '',
                    'phrase': self.phrase or '',
@@ -749,6 +721,7 @@ class ScholarQuerier(object):
         + 'sciifh=1&hl=en&as_sdt=0,5'
 
     SET_SETTINGS_URL = ScholarConf.SCHOLAR_SITE + '/scholar_setprefs?' \
+        + 'start=%(start)s' \
         + 'q=' \
         + '&scisig=%(scisig)s' \
         + '&inststart=0' \
@@ -830,7 +803,8 @@ class ScholarQuerier(object):
             ScholarUtils.log('info', 'parsing settings failed: scisig')
             return False
 
-        urlargs = {'scisig': tag['value'],
+        urlargs = {'start': settings.starting_number,
+                   'scisig': tag['value'],
                    'num': settings.per_page_results,
                    'scis': 'no',
                    'scisf': ''}
@@ -983,6 +957,14 @@ def csv(querier, header=False, sep='|'):
         header = False
 
 
+def to_json(querier, file_name='../res.json'):
+    l = []
+    for art in querier.articles:
+        l.append(art.attrs)
+    with open(file_name, 'wb') as f:
+        json.dump(l, f)
+
+
 def citation_export(querier):
     articles = querier.articles
     for art in articles:
@@ -1035,6 +1017,8 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Do not search, just use articles in given cluster ID')
     group.add_option('-c', '--count', type='int', default=None,
                      help='Maximum number of results')
+    group.add_option('-S', '--start', type='int', default=None,
+                     help='Starting page of results')
     parser.add_option_group(group)
 
     group = optparse.OptionGroup(parser, 'Output format',
@@ -1047,6 +1031,8 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Print article data in CSV form (separator is "|")')
     group.add_option('--csv-header', action='store_true',
                      help='Like --csv, but print header with column names')
+    group.add_option('--json', action='store_true',
+                     help='Save article data in JSON form (default file: "../res.json")')
     group.add_option('--citation', metavar='FORMAT', default=None,
                      help='Print article details in standard citation format. Argument Must be one of "bt" (BibTeX), "en" (EndNote), "rm" (RefMan), or "rw" (RefWorks).')
     parser.add_option_group(group)
@@ -1136,9 +1122,15 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
         options.count = min(options.count, ScholarConf.MAX_PAGE_RESULTS)
         query.set_num_page_results(options.count)
 
+    if options.start is not None:
+        #options.start = min(options.count, ScholarConf.MAX_PAGE_RESULTS)
+        query.set_starting_number(options.start)
+
     querier.send_query(query)
 
-    if options.csv:
+    if options.json:
+        to_json(querier)
+    elif options.csv:
         csv(querier)
     elif options.csv_header:
         csv(querier, header=True)
