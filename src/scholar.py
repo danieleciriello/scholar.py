@@ -10,6 +10,7 @@ import os
 import sys
 import re
 import json
+import time
 
 try:
     # Try importing for Python 3
@@ -52,13 +53,13 @@ class ScholarConf(object):
 
     VERSION = '2.9'
     LOG_LEVEL = 1
-    MAX_PAGE_RESULTS = 20  # Current maximum for per-page results
+    MAX_PAGE_RESULTS = 10  # Current maximum for per-page results
     STARTING_RESULT = 0  # Result offset (to change page)
     SCHOLAR_SITE = 'http://scholar.google.com'
 
     # USER_AGENT = 'Mozilla/5.0 (X11; U; FreeBSD i386; en-US; rv:1.9.2.9) Gecko/20100913 Firefox/3.6.9'
     # Let's update at this point (3/14):
-    USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64; rv:27.0) Gecko/20100101 Firefox/27.0'
+    USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:39.0) Gecko/20100101 Firefox/39.0'
 
     # If set, we will use this file to read/save cookies to enable
     # cookie use across sessions.
@@ -405,6 +406,7 @@ class ScholarArticleParser120726(ScholarArticleParser):
                     year = self.year_re.findall(
                         tag.find('div', {'class': 'gs_a'}).text)
                     self.article['year'] = year[0] if len(year) > 0 else None
+                    self.article['authors'] = tag.find('div', {'class': 'gs_a'}).text.split[year[0]][0] if len(year) > 0 else None
 
                 if tag.find('div', {'class': 'gs_fl'}):
                     self._parse_links(tag.find('div', {'class': 'gs_fl'}))
@@ -957,18 +959,42 @@ def csv(querier, header=False, sep='|'):
         header = False
 
 
-def to_json(querier, file_name='../res.json'):
-    l = []
+json_results = []
+
+
+def to_json(querier):
+    print 'adding ' + str(len(querier.articles)) + ' articles to json list'
+    print 'total articles in json list: ' + str(len(json_results))
     for art in querier.articles:
-        l.append(art.attrs)
-    with open(file_name, 'wb') as f:
-        json.dump(l, f)
+        json_results.append({key: art.attrs[key][0] for key in art.attrs.keys()})
 
 
 def citation_export(querier):
     articles = querier.articles
     for art in articles:
         print(art.as_citation() + '\n')
+
+
+def output_query(options, querier):
+    if options.json:
+        to_json(querier)
+    elif options.csv:
+        csv(querier)
+    elif options.csv_header:
+        csv(querier, header=True)
+    elif options.citation is not None:
+        citation_export(querier)
+    else:
+        txt(querier, with_globals=options.txt_globals)
+
+    if options.cookie_file:
+        querier.save_cookies()
+
+
+def close_if_json(options, file_name='../res.json'):
+    if options.json:
+        with open(file_name, 'wb') as f:
+            json.dump(json_results, f)
 
 
 def main():
@@ -1017,7 +1043,7 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Do not search, just use articles in given cluster ID')
     group.add_option('-c', '--count', type='int', default=None,
                      help='Maximum number of results')
-    group.add_option('-S', '--start', type='int', default=None,
+    group.add_option('-S', '--start', type='int', default=0,
                      help='Starting page of results')
     parser.add_option_group(group)
 
@@ -1118,30 +1144,30 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
         if options.no_citations:
             query.set_include_citations(False)
 
-    if options.count is not None:
-        options.count = min(options.count, ScholarConf.MAX_PAGE_RESULTS)
-        query.set_num_page_results(options.count)
-
     if options.start is not None:
         #options.start = min(options.count, ScholarConf.MAX_PAGE_RESULTS)
         query.set_starting_number(options.start)
 
+    if options.count is not None:
+        if options.count > ScholarConf.MAX_PAGE_RESULTS:
+            total = options.count
+            done = 0
+            while done < total:
+                options.count = min(total-done, ScholarConf.MAX_PAGE_RESULTS)
+                query.set_starting_number(options.start)
+                query.set_num_page_results(options.count)
+                querier.send_query(query)
+                output_query(options, querier)
+                time.sleep(1)
+                options.start += ScholarConf.MAX_PAGE_RESULTS
+                done += options.count
+            close_if_json(options)
+            return 0
+        query.set_num_page_results(options.count)
+
     querier.send_query(query)
-
-    if options.json:
-        to_json(querier)
-    elif options.csv:
-        csv(querier)
-    elif options.csv_header:
-        csv(querier, header=True)
-    elif options.citation is not None:
-        citation_export(querier)
-    else:
-        txt(querier, with_globals=options.txt_globals)
-
-    if options.cookie_file:
-        querier.save_cookies()
-
+    output_query(options, querier)
+    close_if_json(options)
     return 0
 
 if __name__ == "__main__":
