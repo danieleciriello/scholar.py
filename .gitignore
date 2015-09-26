@@ -1,7 +1,12 @@
 .DS_Store
 
+.git*
+
 # Thumbnails
 ._*
 
 # Python bytecode
 .pyc
+
+# Saved json
+.json

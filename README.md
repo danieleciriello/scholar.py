@@ -94,21 +94,21 @@ Report the total number of articles Google Scholar has for Einstein:
 
 ChangeLog
 ---------
-2.9   Fixed Unicode problem in certain queries. Thanks to smidm for
+* 2.9   Fixed Unicode problem in certain queries. Thanks to smidm for
       this contribution.
-2.8   Improved quotation-mark handling for multi-word phrases in
+* 2.8   Improved quotation-mark handling for multi-word phrases in
       queries. Also, log URLs %-decoded in debugging output, for
       easier interpretation.
-2.7   Ability to extract content excerpts as reported in search results.
+* 2.7   Ability to extract content excerpts as reported in search results.
       Also a fix to -s|--some and -n|--none: these did not yet support
       passing lists of phrases. This now works correctly if you provide
       separate phrases via commas.
-2.6   Ability to disable inclusion of patents and citations. This
+* 2.6   Ability to disable inclusion of patents and citations. This
       has the same effect as unchecking the two patents/citations
       checkboxes in the Scholar UI, which are checked by default.
       Accordingly, the command-line options are --no-patents and
       --no-citations.
-2.5:  Ability to parse global result attributes. This right now means
+* 2.5:  Ability to parse global result attributes. This right now means
       only the total number of results as reported by Scholar at the
       top of the results pages (e.g. "About 31 results"). Such
       global result attributes end up in the new attrs member of the
@@ -128,21 +128,21 @@ ChangeLog
              Cluster ID 8174092782678430881
       Citations list http://scholar.google.com/scholar?cites=8174092782678430881&as_sdt=2005&sciodt=0,5&hl=en
        Versions list http://scholar.google.com/scholar?cluster=8174092782678430881&hl=en&as_sdt=0,5
-2.4:  Bugfixes:
+* 2.4:  Bugfixes:
       - Correctly handle Unicode characters when reporting results
         in text format.
       - Correctly parse citation-only (i.e. linkless) results in
         Google Scholar results.
-2.3:  Additional features:
+* 2.3:  Additional features:
       - Direct extraction of first PDF version of an article
       - Ability to pull up an article cluster's results directly.
       This is based on work from @aliparsai on GitHub -- thanks!
       - Suppress missing search results (so far shown as "None" in
         the textual output form.
-2.2:  Added a logging option that reports full HTML contents, for
+* 2.2:  Added a logging option that reports full HTML contents, for
       debugging, as well as incrementally more detailed logging via
       -d up to -dddd.
-2.1:  Additional features:
+* 2.1:  Additional features:
       - Improved cookie support: the new --cookie-file options
         allows the reuse of a cookie across invocations of the tool;
         this allows higher query rates than would otherwise result
@@ -151,18 +151,18 @@ ChangeLog
         URLs. For some reason, Google Scholar decides to propagate
         the value from the original query into the URLs embedded in
         the results.
-2.0:  Thorough overhaul of design, with substantial improvements:
+* 2.0:  Thorough overhaul of design, with substantial improvements:
       - Full support for advanced search arguments provided by
         Google Scholar
       - Support for retrieval of external citation formats, such as
         BibTeX or EndNote
       - Simple logging framework to track activity during execution
-1.7:  Python 3 and BeautifulSoup 4 compatibility, as well as printing
+* 1.7:  Python 3 and BeautifulSoup 4 compatibility, as well as printing
       of usage info when no options are given. Thanks to Pablo
       Oliveira (https://github.com/pablooliveira)!
       Also a bunch of pylinting and code cleanups.
-1.6:  Cookie support, from Matej Smid (https://github.com/palmstrom).
-1.5:  A few changes:
+* 1.6:  Cookie support, from Matej Smid (https://github.com/palmstrom).
+* 1.5:  A few changes:
       - Tweak suggested by Tobias Isenberg: use unicode during CSV
         formatting.
       - The option -c|--count now understands numbers up to 100 as
@@ -170,12 +170,12 @@ ChangeLog
       - By default, text rendering mode is now active. This avoids
         confusion when playing with the script, as it used to report
         nothing when the user didn't select an explicit output mode.
-1.4:  Updates to reflect changes in Scholar's page rendering,
+* 1.4:  Updates to reflect changes in Scholar's page rendering,
       contributed by Amanda Hay at Tufts -- thanks!
-1.3:  Updates to reflect changes in Scholar's page rendering.
-1.2:  Minor tweaks, mostly thanks to helpful feedback from Dan Bolser.
+* 1.3:  Updates to reflect changes in Scholar's page rendering.
+* 1.2:  Minor tweaks, mostly thanks to helpful feedback from Dan Bolser.
       Thanks Dan!
-1.1:  Made author field explicit, added --author option.
+* 1.1:  Made author field explicit, added --author option.
 
 
 License

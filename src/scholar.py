@@ -57,8 +57,6 @@ class ScholarConf(object):
     STARTING_RESULT = 0  # Result offset (to change page)
     SCHOLAR_SITE = 'http://scholar.google.com'
 
-    # USER_AGENT = 'Mozilla/5.0 (X11; U; FreeBSD i386; en-US; rv:1.9.2.9) Gecko/20100913 Firefox/3.6.9'
-    # Let's update at this point (3/14):
     USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:39.0) Gecko/20100101 Firefox/39.0'
 
     # If set, we will use this file to read/save cookies to enable
@@ -406,7 +404,7 @@ class ScholarArticleParser120726(ScholarArticleParser):
                     year = self.year_re.findall(
                         tag.find('div', {'class': 'gs_a'}).text)
                     self.article['year'] = year[0] if len(year) > 0 else None
-                    self.article['authors'] = tag.find('div', {'class': 'gs_a'}).text.split[year[0]][0] if len(year) > 0 else None
+                    #self.article['authors'] = tag.find('div', {'class': 'gs_a'}).text.split[year[0]][0] if len(year) > 0 else None
 
                 if tag.find('div', {'class': 'gs_fl'}):
                     self._parse_links(tag.find('div', {'class': 'gs_fl'}))
@@ -567,7 +565,7 @@ class SearchScholarQuery(ScholarQuery):
         + '&as_sdt=%(patents)s%%2C5' \
         + '&as_vis=%(citations)s' \
         + '&btnG=&hl=en' \
-        + '&num=%(num)s'
+        + '&num=%(num)s'\
 
     def __init__(self):
         ScholarQuery.__init__(self)
@@ -819,6 +817,7 @@ class ScholarQuerier(object):
                                        log_msg='dump of settings result HTML',
                                        err_msg='applying setttings failed')
         if html is None:
+            print 'html is None'
             return False
 
         ScholarUtils.log('info', 'settings applied')
@@ -1045,6 +1044,8 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Maximum number of results')
     group.add_option('-S', '--start', type='int', default=0,
                      help='Starting page of results')
+    group.add_option('-W', '--webdriver', action='store_true', default=False,
+                     help='Use selenium with Firefox as webdriver, not headless')
     parser.add_option_group(group)
 
     group = optparse.OptionGroup(parser, 'Output format',
@@ -1152,17 +1153,21 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
         if options.count > ScholarConf.MAX_PAGE_RESULTS:
             total = options.count
             done = 0
-            while done < total:
-                options.count = min(total-done, ScholarConf.MAX_PAGE_RESULTS)
-                query.set_starting_number(options.start)
-                query.set_num_page_results(options.count)
-                querier.send_query(query)
-                output_query(options, querier)
-                time.sleep(1)
-                options.start += ScholarConf.MAX_PAGE_RESULTS
-                done += options.count
-            close_if_json(options)
-            return 0
+            try:
+                while done < total:
+                    options.count = min(total-done, ScholarConf.MAX_PAGE_RESULTS)
+                    query.set_starting_number(options.start)
+                    query.set_num_page_results(options.count)
+                    querier.send_query(query)
+                    output_query(options, querier)
+                    time.sleep(1)
+                    options.start += ScholarConf.MAX_PAGE_RESULTS
+                    done += options.count
+            except Exception, e:
+                print e
+            finally:
+                close_if_json(options)
+                return 0
         query.set_num_page_results(options.count)
 
     querier.send_query(query)
