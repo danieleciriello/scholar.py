@@ -1044,8 +1044,6 @@ scholar.py -c 5 -a "albert einstein" -t --none "quantum theory" --after 1970"""
                      help='Maximum number of results')
     group.add_option('-S', '--start', type='int', default=0,
                      help='Starting page of results')
-    group.add_option('-W', '--webdriver', action='store_true', default=False,
-                     help='Use selenium with Firefox as webdriver, not headless')
     parser.add_option_group(group)
 
     group = optparse.OptionGroup(parser, 'Output format',
